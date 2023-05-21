@@ -4,18 +4,18 @@
 <context>
     <name>harbour-papago</name>
     <message>
-        <location filename="../qml/harbour-papago.qml" line="38"/>
+        <location filename="../qml/harbour-papago.qml" line="51"/>
         <source>Language</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/harbour-papago.qml" line="65"/>
+        <location filename="../qml/harbour-papago.qml" line="83"/>
         <source>No language is available.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/harbour-papago.qml" line="66"/>
-        <source>You can set the available languages in the %1 app</source>
+        <location filename="../qml/harbour-papago.qml" line="84"/>
+        <source>You can set languages in the %1 app.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -7,6 +7,7 @@
 
 import QtQuick 2.0
 import Sailfish.Silica 1.0
+import Nemo.Configuration 1.0
 
 ApplicationWindow {
     id: app
@@ -15,6 +16,17 @@ ApplicationWindow {
     property alias speechText: label.text
     property alias speechLang: speechService.lang
     property bool speechOff: app.speechLang.length === 0
+
+    ConfigurationValue {
+        id: langConf
+        key: "/apps/harbour-papago/settings/lang"
+        defaultValue: "en"
+
+        onValueChanged: {
+            console.log("langConf:", value)
+            speechService.setLangId(value)
+        }
+    }
 
     Component {
         id: coverComp
@@ -34,9 +46,10 @@ ApplicationWindow {
         allowedOrientations: Orientation.All
 
         ComboBox {
+            id: langCombo
             visible: !app.speechOff
             label: qsTr("Language")
-            currentIndex: 0
+            currentIndex: speechService.langIdx
             menu: ContextMenu {
                 Repeater {
                     model: speechService.sttTtsLangList
@@ -47,8 +60,13 @@ ApplicationWindow {
             }
 
             onCurrentIndexChanged: {
-                speechService.set_lang(currentIndex)
+                speechService.setLangIdx(currentIndex)
                 label.text = ""
+            }
+
+            Connections {
+                target: speechService
+                onLangIdxChanged: langCombo.currentIndex = speechService.langIdx
             }
         }
 
@@ -63,7 +81,7 @@ ApplicationWindow {
             color: Theme.errorColor
             wrapMode: Text.WordWrap
             text: qsTr("No language is available.") + " " +
-                  qsTr("You can set the available languages in the %1 app").arg("Speech Note")
+                  qsTr("You can set languages in the %1 app.").arg("Speech Note")
         }
 
         Label {
@@ -119,9 +137,13 @@ ApplicationWindow {
         id: speechService
 
         property string lang: ""
+        property int langIdx: 0
         property string decodedText: ""
 
         function init() {
+            if (lang.length === 0)
+                setLangId(langConf.value)
+
             if (idle && lang.length > 0) {
                 if (decodedText.length === 0) {
                     startListen(lang)
@@ -134,19 +156,44 @@ ApplicationWindow {
             }
         }
 
-        function set_lang(index) {
+        function setLangIdx(index) {
             decodedText = ""
 
-            if (index < sttTtsLangList.length)
+            if (index < sttTtsLangList.length) {
                 lang = sttTtsLangList[index][0]
+                langIdx = index
+                langConf.value = lang
+            }
+        }
+
+        function setLangId(id) {
+            decodedText = ""
+
+            for (var i = 0; i < sttTtsLangList.length; i++) {
+                if (sttTtsLangList[i][0] !== id) continue;
+                lang = id
+                langIdx = i
+                langConf.value = lang
+                return
+            }
+
+            if (sttTtsLangList.length !== 0) {
+                lang = sttTtsLangList[0][0]
+                langIdx = 0
+                langConf.value = lang
+            }
         }
 
         active: true
         listeningMode: 2 /*One Sentence*/
 
-        onLangChanged: init()
+        onLangChanged: {
+            init()
+        }
 
-        onSttTtsLangListChanged: set_lang(0)
+        onSttTtsLangListChanged: {
+            setLangId(langConf.value)
+        }
 
         onTextReady: {
             decodedText = text
