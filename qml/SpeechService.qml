@@ -12,22 +12,33 @@ Item {
     id: root
 
     /*
-    States:
-    0 = Unknown
-    1 = Not Configured
-    2 = Busy
-    3 = Idle
-    4 = Listening Manual
-    5 = Listening Auto
-    6 = Transcribing File
-    7 = Listening One-sentence
-    8 = Playing speech
+    Active:
+        set 'true' to send keepalive pings to Speech service to stop
+        the service shutdown
+        when app is in background 'active' should be set to 'false' to
+        release resources
+    */
+    property bool active: false
 
-    Listening modes:
+    /*
+    ListeningMode:
     0 = Automatic
     1 = Manual
     2 = One Sentence
+    */
+    property int listeningMode: 2
 
+    /*
+    Connected: connected to Speech service
+    */
+    readonly property bool connected: dbus.state > 0
+
+    /*
+    Idle: speech service is idle and ready to receive task request
+    */
+    readonly property bool idle: dbus.state === 3
+
+    /*
     Speech status:
     0 = No Speech
     1 = Speech Detected
@@ -35,29 +46,86 @@ Item {
     3 = Speech Initializing
     4 = Playing Speech
     */
-
-    property bool active: false // set active to send keepalive pings to stt service
-    property int listeningMode: 2 // 'One Sentence' is a default
-
-    readonly property bool connected: dbus.state > 0
-    readonly property bool idle: dbus.state === 3
     readonly property alias speech: dbus.speech
+
+    /*
+    Listening: microphone is in use
+    */
     readonly property bool listening: dbus.state > 3 && dbus.state < 8 && !anotherAppConnected
+
+    /*
+    Playing: speech service plays audio
+    */
     readonly property bool playing: dbus.state === 8 && !anotherAppConnected
+
+    /*
+    AnotherAppConnected: another app is using Speech service
+    */
     readonly property bool anotherAppConnected: dbus.myTask !== dbus.currentTask
+
+    /*
+    Busy: speech service is busy
+    */
     readonly property bool busy: speech !== 2 && speech !== 3 && (dbus.state === 2 || anotherAppConnected)
+
+    /*
+    SttLangs: map [lang_id] => [stt_model_id, stt_model_name]
+        map of langs with support for STT
+    */
     readonly property alias sttLangs: dbus.sttLangs
+
+    /*
+    TtsLangs: map [lang_id] => [tts_model_id, tts_model_name]
+        map of langs with support for TTS
+    */
     readonly property alias ttsLangs: dbus.ttsLangs
+
+    /*
+    SttLangList: list [lang_id, lang_name]
+        list of langs with support for STT
+    */
     readonly property alias sttLangList: dbus.sttLangList
+
+    /*
+    TtsLangList: list [lang_id, lang_name]
+        list of langs with support for TTS
+    */
     readonly property alias ttsLangList: dbus.ttsLangList
+
+    /*
+    SttTtsLangList: list [lang_id, lang_name]
+        list of langs with support for both STT and TTS
+    */
     readonly property alias sttTtsLangList: dbus.sttTtsLangList
+
+    /*
+    Configured: speech service has at least one language model configured
+    */
     readonly property bool configured: dbus.state > 1
 
+    /*
+    IntermediateTextReady: partial STT result
+    */
     signal intermediateTextReady(string text)
+
+    /*
+    TextReady: final STT result
+    */
     signal textReady(string text)
+
+    /*
+    PartialSpeechPlaying: partial TTS playback started
+    */
     signal partialSpeechPlaying(string text)
+
+    /*
+    PlaySpeechFinished: TTS playback finished
+    */
     signal playSpeechFinished()
 
+    /*
+    Cancel: cancels any STT or TTS task
+    */
     function cancel() {
         if (busy) {
             console.warn("cannot call cancel, speech service is busy")
@@ -78,6 +146,9 @@ Item {
                        }, _handle_error)
     }
 
+    /*
+    StopListen: stops STT task
+    */
     function stopListen() {
         if (busy) {
             console.warn("cannot call stopListen, speech service is busy")
@@ -98,6 +169,9 @@ Item {
                        }, _handle_error)
     }
 
+    /*
+    StartListen: starts STT task
+    */
     function startListen(lang) {
         if (busy) {
             console.error("cannot call startListen, speech service is busy")
@@ -118,6 +192,9 @@ Item {
                   }, _handle_error)
     }
 
+    /*
+    PlaySpeech: starts TTS task
+    */
     function playSpeech(text, lang) {
         if (busy) {
             console.error("cannot call playListen, speech service is busy")
@@ -138,6 +215,9 @@ Item {
                   }, _handle_error)
     }
 
+    /*
+    StopSpeech: stops TTS task
+    */
     function stopSpeech(text, lang) {
         if (busy) {
             console.error("cannot call stopSpeech, speech service is busy")
@@ -161,6 +241,7 @@ Item {
                   }, _handle_error)
     }
 
+    // private API
     function translate(id) {
         if (connected) {
             var trans = dbus.translations[id]
@@ -203,35 +284,71 @@ Item {
     DBusInterface {
         id: dbus
 
+        /*
+        States:
+        0 = Unknown
+        1 = Not Configured
+        2 = Busy
+        3 = Idle
+        4 = Listening Manual
+        5 = Listening Auto
+        6 = Transcribing File
+        7 = Listening One-sentence
+        8 = Playing speech
+        */
+        property int state: 0
+
+        /*
+        Speech:
+        0 = No Speech
+        1 = Speech Detected
+        2 = Speech Decoding/Encoding
+        3 = Speech Initializing
+        4 = Playing Speech
+        */
+        property int speech: 0
+
+        /*
+        SttLangs: map [lang_id] => [stt_model_id, stt_model_name]
+            map of langs with support for STT
+        */
+        property var sttLangs
+
+        /*
+        TtsLangs: map [lang_id] => [tts_model_id, tts_model_name]
+            map of langs with support for TTS
+        */
+        property var ttsLangs
+
+        /*
+        SttLangList: list [lang_id, lang_name]
+            list of langs with support for STT
+        */
+        property var sttLangList
+
+        /*
+        TtsLangList: list [lang_id, lang_name]
+            list of langs with support for TTS
+        */
+        property var ttsLangList
+
+        /*
+        SttTtsLangList: list [lang_id, lang_name]
+            list of langs with support for both STT and TTS
+        */
+        property var sttTtsLangList
+
         property int myTask: -1
         property int currentTask: -1
-        property int state: 0
-        property int speech: 0
+
+        // private API
         property var translations: []
-        property var sttLangs
-        property var ttsLangs
-        property var sttLangList
-        property var ttsLangList
-        property var sttTtsLangList
 
         service: "org.mkiol.Speech"
         iface: "org.mkiol.Speech"
         path: "/"
 
         signalsEnabled: true
-
-        onStateChanged: {
-            console.log("speech service state changed:", state)
-        }
-        onSpeechChanged: {
-            console.log("speech service speech changed:", speech)
-        }
-        onMyTaskChanged: {
-            console.log("speech service my task changed:", myTask)
-        }
-        onCurrentTaskChanged: {
-            console.log("speech service current task changed:", currentTask)
-        }
 
         function sttIntermediateTextDecoded(text, lang, task) {
             if (myTask === task) {
