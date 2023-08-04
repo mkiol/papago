@@ -36,7 +36,7 @@ Item {
     /*
     Idle: speech service is idle and ready to receive task request
     */
-    readonly property bool idle: dbus.state === 3
+    readonly property bool idle: dbus.state === 3 && !busy
 
     /*
     Speech status:
@@ -46,7 +46,7 @@ Item {
     3 = Speech Initializing
     4 = Playing Speech
     */
-    readonly property alias speech: dbus.speech
+    readonly property alias taskState: dbus.taskState
 
     /*
     Listening: microphone is in use
@@ -66,7 +66,7 @@ Item {
     /*
     Busy: speech service is busy
     */
-    readonly property bool busy: speech !== 2 && speech !== 3 && (dbus.state === 2 || anotherAppConnected)
+    readonly property bool busy: taskState !== 2 && taskState !== 3 && (dbus.state === 2 || anotherAppConnected)
 
     /*
     SttLangs: map [lang_id] => [stt_model_id, stt_model_name]
@@ -99,6 +99,18 @@ Item {
     readonly property alias sttTtsLangList: dbus.sttTtsLangList
 
     /*
+    MntLangs: map [lang_id] => [mnt_model_id, lang_name]
+        list of langs for translation from
+    */
+    readonly property alias mntLangs: dbus.mntLangs
+
+    /*
+    MntLangList: list [lang_id, lang_name]
+        list of langs for translation from
+    */
+    readonly property alias mntLangList: dbus.mntLangList
+
+    /*
     Configured: speech service has at least one language model configured
     */
     readonly property bool configured: dbus.state > 1
@@ -124,7 +136,17 @@ Item {
     signal playSpeechFinished()
 
     /*
-    Cancel: cancels any STT or TTS task
+    TranslateFinished: Translation finished
+    */
+    signal translateFinished(string outText, string outLang)
+
+    /*
+    TaskEndedUnexpectedly: Task was ended from service side
+    */
+    signal taskEndedUnexpectedly()
+
+    /*
+    Cancel: cancels any task
     */
     function cancel() {
         if (busy) {
@@ -140,6 +162,7 @@ Item {
         keepaliveTaskTimer.stop()
         dbus.typedCall("Cancel", [{"type": "i", "value": dbus.myTask}],
                        function(result) {
+                           dbus.updateStateProperties()
                            if (result !== 0) {
                                console.error("cancel failed")
                            }
@@ -163,6 +186,7 @@ Item {
         keepaliveTaskTimer.stop()
         dbus.typedCall("SttStopListen", [{"type": "i", "value": dbus.myTask}],
                        function(result) {
+                           dbus.updateStateProperties()
                            if (result !== 0) {
                                console.error("stopListen failed")
                            }
@@ -181,9 +205,10 @@ Item {
         if (!lang) lang = '';
 
         dbus.typedCall("SttStartListen",
-                  [{"type": "i", "value": root.listeningMode}, {"type": "s", "value": lang}, {"type": "b", "value": false}],
+                  [{"type": "i", "value": root.listeningMode}, {"type": "s", "value": lang}, {"type": "s", "value": ""}],
                   function(result) {
                       dbus.myTask = result
+                      dbus.updateStateProperties()
                       if (result < 0) {
                           console.error("startListen failed")
                       } else {
@@ -207,6 +232,7 @@ Item {
                   [{"type": "s", "value": text}, {"type": "s", "value": lang}],
                   function(result) {
                       dbus.myTask = result
+                      dbus.updateStateProperties()
                       if (result < 0) {
                           console.error("playSpeech failed")
                       } else {
@@ -218,7 +244,7 @@ Item {
     /*
     StopSpeech: stops TTS task
     */
-    function stopSpeech(text, lang) {
+    function stopSpeech() {
         if (busy) {
             console.error("cannot call stopSpeech, speech service is busy")
             return;
@@ -232,17 +258,54 @@ Item {
         dbus.typedCall("TtsStopSpeech",
                   [{"type": "i", "value": dbus.myTask}],
                   function(result) {
-                      dbus.myTask = result
-                      if (result < 0) {
+                      dbus.updateStateProperties()
+                      if (result !== 0) {
                           console.error("stopSpeech failed")
+                      }
+                  }, _handle_error)
+    }
+
+    /*
+    Translate: translate text
+    */
+    function translate(text, lang, outLang) {
+        if (busy) {
+            console.error("cannot call translate, speech service is busy")
+            return;
+        }
+
+        dbus.typedCall("MntTranslate",
+                  [{"type": "s", "value": text}, {"type": "s", "value": lang},
+                   {"type": "s", "value": outLang}],
+                  function(result) {
+                      dbus.myTask = result
+                      dbus.updateStateProperties()
+                      if (result < 0) {
+                          console.error("translate failed")
                       } else {
                           _keepAliveTask()
                       }
                   }, _handle_error)
     }
 
+    /*
+    GetOutLangsForTranslate: return supported languages to translate into
+    */
+    function getOutLangsForTranslate(lang, callback) {
+        if (busy) {
+            console.error("cannot call getOutLangsForTranslate, speech service is busy")
+            return;
+        }
+
+        dbus.typedCall("MntGetOutLangs",
+                  [{"type": "s", "value": lang}],
+                  function(result) {
+                      callback(result)
+                  }, _handle_error)
+    }
+
     // private API
-    function translate(id) {
+    function translate_literal(id) {
         if (connected) {
             var trans = dbus.translations[id]
             if (trans.length > 0) return trans
@@ -259,6 +322,9 @@ Item {
                            if (result > 0 && root.active && dbus.myTask > -1) {
                                keepaliveTaskTimer.interval = result * 0.75
                                keepaliveTaskTimer.start()
+                           } else {
+                               console.log("service task ended unexpectedly")
+                               root.taskEndedUnexpectedly()
                            }
                        }, _handle_error)
     }
@@ -275,10 +341,12 @@ Item {
 
     function _handle_result(result) {
         console.debug("DBus call completed", result)
+        dbus.updateStateProperties()
     }
 
     function _handle_error(error, message) {
         console.debug("DBus call failed", error, "message:", message)
+        dbus.updateStateProperties()
     }
 
     DBusInterface {
@@ -295,18 +363,20 @@ Item {
         6 = Transcribing File
         7 = Listening One-sentence
         8 = Playing speech
+        9 = Writing speech to file
+        10 = Translating
         */
         property int state: 0
 
         /*
-        Speech:
+        Task states:
         0 = No Speech
         1 = Speech Detected
         2 = Speech Decoding/Encoding
         3 = Speech Initializing
         4 = Playing Speech
         */
-        property int speech: 0
+        property int taskState: 0
 
         /*
         SttLangs: map [lang_id] => [stt_model_id, stt_model_name]
@@ -319,6 +389,12 @@ Item {
             map of langs with support for TTS
         */
         property var ttsLangs
+
+        /*
+        MntLangs: map [lang_id] => [mnt_model_id, lang_name]
+            list of langs for translation from
+        */
+        property var mntLangs
 
         /*
         SttLangList: list [lang_id, lang_name]
@@ -337,6 +413,12 @@ Item {
             list of langs with support for both STT and TTS
         */
         property var sttTtsLangList
+
+        /*
+        MntLangList: list [lang_id, lang_name]
+            list of langs for translation from
+        */
+        property var mntLangList
 
         property int myTask: -1
         property int currentTask: -1
@@ -374,23 +456,32 @@ Item {
             }
         }
 
+        function mntTranslateFinished(inText, inLang, outText, outLang, task) {
+            if (myTask === task) {
+                root.translateFinished(outText, outLang)
+            }
+        }
+
         function statePropertyChanged(state) {
+            console.log("state changed:", state)
             dbus.state = state
         }
 
-        function speechPropertyChanged(speech) {
+        function taskStatePropertyChanged(taskState) {
+            console.log("task state chaged:", taskState)
             if (dbus.currentTask === dbus.myTask) {
-                dbus.speech = speech
+                dbus.taskState = taskState
             }
         }
 
         function currentTaskPropertyChanged(task) {
+            console.log("current task changed:", task)
             dbus.currentTask = task
             if (dbus.currentTask == -1) dbus.myTask = -1
             if (dbus.currentTask > -1 && dbus.currentTask === dbus.myTask) {
-                dbus.speech = dbus.getProperty("Speech")
+                dbus.taskState = dbus.getProperty("TaskState")
             } else {
-                dbus.speech = 0
+                dbus.taskState = 0
             }
         }
 
@@ -414,21 +505,40 @@ Item {
             dbus.sttTtsLangList = langs
         }
 
+        function mntLangsPropertyChanged(langs) {
+            dbus.mntLangs = langs
+        }
+
+        function mntLangListPropertyChanged(langs) {
+            dbus.mntLangList = langs
+        }
+
         function updateProperties() {
+            updateStateProperties()
+
             dbus.translations = dbus.getProperty("Translations")
-            dbus.currentTask = dbus.getProperty("CurrentTask")
-            if (dbus.currentTask == -1) dbus.myTask = -1
-            dbus.state = dbus.getProperty("State")
-            if (dbus.currentTask > -1 && dbus.currentTask === dbus.myTask) {
-                dbus.speech = dbus.getProperty("Speech")
-            } else {
-                dbus.speech = 0
-            }
             dbus.sttLangs = dbus.getProperty("SttLangs")
             dbus.ttsLangs = dbus.getProperty("TtsLangs")
             dbus.sttLangList = dbus.getProperty("SttLangList")
             dbus.ttsLangList = dbus.getProperty("TtsLangList")
             dbus.sttTtsLangList = dbus.getProperty("SttTtsLangList")
+            dbus.mntLangs= dbus.getProperty("MntLangs")
+            dbus.mntLangList= dbus.getProperty("MntLangList")
+
+            if (dbus.state === 0 || dbus.state === 2 ||
+                    dbus.sttLangList.length === 0 ||
+                    dbus.ttsLangList.length === 0) busyTimer.start()
+        }
+
+        function updateStateProperties() {
+            dbus.currentTask = dbus.getProperty("CurrentTask")
+            if (dbus.currentTask == -1) dbus.myTask = -1
+            dbus.state = dbus.getProperty("State")
+            if (dbus.currentTask > -1 && dbus.currentTask === dbus.myTask) {
+                dbus.taskState = dbus.getProperty("TaskState")
+            } else {
+                dbus.taskState = 0
+            }
         }
     }
 
@@ -442,6 +552,13 @@ Item {
         id: keepaliveTaskTimer
         repeat: false
         onTriggered: _keepAliveTask()
+    }
+
+    Timer {
+        id: busyTimer
+        repeat: false
+        interval: 5000
+        onTriggered: dbus.updateProperties()
     }
 
     onActiveChanged: {

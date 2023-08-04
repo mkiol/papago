@@ -4,19 +4,20 @@
 <context>
     <name>harbour-papago</name>
     <message>
-        <location filename="../qml/harbour-papago.qml" line="51"/>
-        <source>Language</source>
-        <translation>Język</translation>
+        <source>Input</source>
+        <translation>Wejście</translation>
     </message>
     <message>
-        <location filename="../qml/harbour-papago.qml" line="83"/>
+        <source>Output</source>
+        <translation>Wyjście</translation>
+    </message>
+    <message>
+        <source>You can download Speech to Text, Text to Speech and Translator models for the languages you intend to use in the %1 app.</source>
+        <translation>Możesz pobrać modele Mowa na Tekst, Tekst na Mowę oraz modele tłumaczeń dla języków, które zamierzasz używać w aplikacji %1.</translation>
+    </message>
+    <message>
         <source>No language is available.</source>
         <translation>Brak dostępnych języków.</translation>
-    </message>
-    <message>
-        <location filename="../qml/harbour-papago.qml" line="84"/>
-        <source>You can set languages in the %1 app.</source>
-        <translation>Możesz ustawić języki w aplikacji %1.</translation>
     </message>
 </context>
 </TS>

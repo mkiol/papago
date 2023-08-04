@@ -1,7 +1,7 @@
 Name:       harbour-papago
 
 Summary:    Papago
-Version:    1.0
+Version:    2.0
 Release:    1
 License:    LICENSE
 BuildArch:  noarch
@@ -16,7 +16,7 @@ BuildRequires:  pkgconfig(Qt5Quick)
 BuildRequires:  desktop-file-utils
 
 %description
-Papago repeats what you say
+Papago repeats what you say but in a different language.
 
 
 %prep
