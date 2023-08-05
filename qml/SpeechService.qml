@@ -151,12 +151,12 @@ Item {
     function cancel() {
         if (busy) {
             console.warn("cannot call cancel, speech service is busy")
-            return;
+            return
         }
 
         if (dbus.myTask < 0) {
             console.warn("cannot call cancel, no active task")
-            return;
+            return
         }
 
         keepaliveTaskTimer.stop()
@@ -175,12 +175,12 @@ Item {
     function stopListen() {
         if (busy) {
             console.warn("cannot call stopListen, speech service is busy")
-            return;
+            return
         }
 
         if (dbus.myTask < 0) {
             console.warn("cannot call stopListen, no active task")
-            return;
+            return
         }
 
         keepaliveTaskTimer.stop()
@@ -199,7 +199,7 @@ Item {
     function startListen(lang) {
         if (busy) {
             console.error("cannot call startListen, speech service is busy")
-            return;
+            return
         }
 
         if (!lang) lang = '';
@@ -223,7 +223,7 @@ Item {
     function playSpeech(text, lang) {
         if (busy) {
             console.error("cannot call playListen, speech service is busy")
-            return;
+            return
         }
 
         if (!lang) lang = '';
@@ -247,12 +247,12 @@ Item {
     function stopSpeech() {
         if (busy) {
             console.error("cannot call stopSpeech, speech service is busy")
-            return;
+            return
         }
 
         if (dbus.myTask < 0) {
             console.warn("cannot call stopSpeech, no active task")
-            return;
+            return
         }
 
         dbus.typedCall("TtsStopSpeech",
@@ -271,7 +271,7 @@ Item {
     function translate(text, lang, outLang) {
         if (busy) {
             console.error("cannot call translate, speech service is busy")
-            return;
+            return
         }
 
         dbus.typedCall("MntTranslate",
@@ -294,7 +294,7 @@ Item {
     function getOutLangsForTranslate(lang, callback) {
         if (busy) {
             console.error("cannot call getOutLangsForTranslate, speech service is busy")
-            return;
+            return false
         }
 
         dbus.typedCall("MntGetOutLangs",
@@ -302,6 +302,8 @@ Item {
                   function(result) {
                       callback(result)
                   }, _handle_error)
+
+        return true
     }
 
     // private API
@@ -316,7 +318,7 @@ Item {
     // ------
 
     function _keepAliveTask() {
-        if (dbus.myTask < 0) return;
+        if (dbus.myTask < 0) return
         dbus.typedCall("KeepAliveTask", [{"type": "i", "value": dbus.myTask}],
                        function(result) {
                            if (result > 0 && root.active && dbus.myTask > -1) {

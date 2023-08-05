@@ -65,13 +65,17 @@ ApplicationWindow {
     initialPage: Page {
         allowedOrientations: Orientation.All
 
-        Column {
-            width: parent.width
+        Grid {
+            width: app.orientation & Orientation.PortraitMask ? parent.width : parent.width / 2
+            columns: app.orientation & Orientation.PortraitMask ? 1 : 2
 
             ComboBox {
                 id: inLangCombo
+                enabled: !speechService.busy
+                opacity: enabled ? 1.0 : Theme.opacityFaint
+                Behavior on opacity { FadeAnimator {} }
                 visible: !app.speechOff
-                label: qsTr("Input")
+                label: qsTr("%1 listens").arg("Papago")
                 currentIndex: speechService.inLangIdx
                 menu: ContextMenu {
                     Repeater {
@@ -89,8 +93,11 @@ ApplicationWindow {
 
             ComboBox {
                 id: outLangCombo
+                enabled: !speechService.busy
+                opacity: enabled ? 1.0 : Theme.opacityFaint
+                Behavior on opacity { FadeAnimator {} }
                 visible: !app.speechOff
-                label: qsTr("Output")
+                label: qsTr("%1 speeks").arg("Papago")
                 currentIndex: speechService.outLangIdx
                 menu: ContextMenu {
                     Repeater {
@@ -404,8 +411,11 @@ ApplicationWindow {
         function updateLangs() {
             console.log("update langs")
 
-            // in-lang
+            fillInLangs()
+            fillOutLangs()
+        }
 
+        function fillInLangs() {
             var newInLangList = []
             for (var sttIdx = 0; sttIdx < sttLangList.length; sttIdx++) {
                 var sttLangId = sttLangList[sttIdx][0];
@@ -417,10 +427,10 @@ ApplicationWindow {
             inLangList = newInLangList
 
             setInLangId(inLangConf.value)
+        }
 
-            // out-lang
-
-            getOutLangsForTranslate(inLang, function(langs) {
+        function fillOutLangs() {
+            var ok = getOutLangsForTranslate(inLang, function(langs) {
                 var newOutLangList = []
 
                 for (var sttIdx = 0; sttIdx < sttLangList.length; sttIdx++) {
@@ -439,6 +449,12 @@ ApplicationWindow {
 
                 setOutLangId(outLangConf.value)
             })
+
+            if (!ok) {
+                console.log("fill out lang failed")
+
+                fillOutLangsTimer.start()
+            }
         }
 
         active: true
@@ -520,6 +536,17 @@ ApplicationWindow {
                     app.appState = 0
                     speechService.init()
                 }
+            }
+        }
+
+        Timer {
+            id: fillOutLangsTimer
+
+            repeat: false
+            interval: 1000
+            onTriggered: {
+                console.log("fill out langs timeout")
+                speechService.fillOutLangs()
             }
         }
     }
