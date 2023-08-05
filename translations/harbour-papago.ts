@@ -4,19 +4,19 @@
 <context>
     <name>harbour-papago</name>
     <message>
-        <source>Input</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Output</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>You can download Speech to Text, Text to Speech and Translator models for the languages you intend to use in the %1 app.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>No language is available.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 listens</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 speeks</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
