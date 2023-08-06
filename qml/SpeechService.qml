@@ -159,6 +159,8 @@ Item {
             return
         }
 
+        console.log("cancel")
+
         keepaliveTaskTimer.stop()
         dbus.typedCall("Cancel", [{"type": "i", "value": dbus.myTask}],
                        function(result) {
@@ -183,6 +185,8 @@ Item {
             return
         }
 
+        console.log("stop listen")
+
         keepaliveTaskTimer.stop()
         dbus.typedCall("SttStopListen", [{"type": "i", "value": dbus.myTask}],
                        function(result) {
@@ -203,6 +207,8 @@ Item {
         }
 
         if (!lang) lang = '';
+
+        console.log("start listen")
 
         dbus.typedCall("SttStartListen",
                   [{"type": "i", "value": root.listeningMode}, {"type": "s", "value": lang}, {"type": "s", "value": ""}],
@@ -227,6 +233,8 @@ Item {
         }
 
         if (!lang) lang = '';
+
+        console.log("play speech")
 
         dbus.typedCall("TtsPlaySpeech",
                   [{"type": "s", "value": text}, {"type": "s", "value": lang}],
@@ -255,6 +263,8 @@ Item {
             return
         }
 
+        console.log("stop speech")
+
         dbus.typedCall("TtsStopSpeech",
                   [{"type": "i", "value": dbus.myTask}],
                   function(result) {
@@ -273,6 +283,8 @@ Item {
             console.error("cannot call translate, speech service is busy")
             return
         }
+
+        console.log("translate")
 
         dbus.typedCall("MntTranslate",
                   [{"type": "s", "value": text}, {"type": "s", "value": lang},
@@ -321,12 +333,16 @@ Item {
         if (dbus.myTask < 0) return
         dbus.typedCall("KeepAliveTask", [{"type": "i", "value": dbus.myTask}],
                        function(result) {
-                           if (result > 0 && root.active && dbus.myTask > -1) {
-                               keepaliveTaskTimer.interval = result * 0.75
-                               keepaliveTaskTimer.start()
+                           if (result > 0) {
+                               if (root.active && dbus.myTask > -1) {
+                                   keepaliveTaskTimer.interval = result * 0.75
+                                   keepaliveTaskTimer.start()
+                               }
                            } else {
-                               console.log("service task ended unexpectedly")
-                               root.taskEndedUnexpectedly()
+                               if (root.active && dbus.myTask > -1) {
+                                   console.log("service task ended unexpectedly")
+                                   root.taskEndedUnexpectedly()
+                               }
                            }
                        }, _handle_error)
     }
@@ -437,30 +453,40 @@ Item {
         function sttIntermediateTextDecoded(text, lang, task) {
             if (myTask === task) {
                 root.intermediateTextReady(text)
+            } else {
+                console.log("sttIntermediateTextDecoded ignored")
             }
         }
 
         function sttTextDecoded(text, lang, task) {
             if (myTask === task) {
                 root.textReady(text)
+            } else {
+                console.log("sttTextDecoded ignored")
             }
         }
 
         function ttsPlaySpeechFinished(task) {
             if (myTask === task) {
                 root.playSpeechFinished()
+            } else {
+                console.log("ttsPlaySpeechFinished ignored")
             }
         }
 
         function ttsPartialSpeechPlaying(text, task) {
             if (myTask === task) {
                 root.partialSpeechPlaying(text)
+            } else {
+                console.log("ttsPartialSpeechPlaying ignored")
             }
         }
 
         function mntTranslateFinished(inText, inLang, outText, outLang, task) {
             if (myTask === task) {
                 root.translateFinished(outText, outLang)
+            } else {
+                console.log("mntTranslateFinished ignored")
             }
         }
 
@@ -534,7 +560,7 @@ Item {
 
         function updateStateProperties() {
             dbus.currentTask = dbus.getProperty("CurrentTask")
-            if (dbus.currentTask == -1) dbus.myTask = -1
+            //if (dbus.currentTask == -1) dbus.myTask = -1
             dbus.state = dbus.getProperty("State")
             if (dbus.currentTask > -1 && dbus.currentTask === dbus.myTask) {
                 dbus.taskState = dbus.getProperty("TaskState")
@@ -542,6 +568,9 @@ Item {
                 dbus.taskState = 0
             }
         }
+
+        onMyTaskChanged: console.log("my task changed:", myTask)
+        onCurrentTaskChanged: console.log("current task changed:", currentTask)
     }
 
     Timer {
@@ -559,7 +588,7 @@ Item {
     Timer {
         id: busyTimer
         repeat: false
-        interval: 5000
+        interval: 1000
         onTriggered: dbus.updateProperties()
     }
 
