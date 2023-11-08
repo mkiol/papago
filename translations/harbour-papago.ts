@@ -19,5 +19,17 @@
         <source>%1 speeks</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Confirm before speak</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Yes</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

@@ -19,5 +19,17 @@
         <source>%1 speeks</source>
         <translation>%1 mówi</translation>
     </message>
+    <message>
+        <source>Confirm before speak</source>
+        <translation>Potwierdź przed mówieniem</translation>
+    </message>
+    <message>
+        <source>No</source>
+        <translation>Nie</translation>
+    </message>
+    <message>
+        <source>Yes</source>
+        <translation>Tak</translation>
+    </message>
 </context>
 </TS>

@@ -4,22 +4,37 @@
 <context>
     <name>harbour-papago</name>
     <message>
-        <location filename="../qml/harbour-papago.qml" line="78"/>
+        <location filename="../qml/harbour-papago.qml" line="93"/>
         <source>%1 listens</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/harbour-papago.qml" line="100"/>
+        <location filename="../qml/harbour-papago.qml" line="125"/>
         <source>%1 speeks</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/harbour-papago.qml" line="129"/>
+        <location filename="../qml/harbour-papago.qml" line="155"/>
+        <source>Confirm before speak</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/harbour-papago.qml" line="159"/>
+        <source>No</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/harbour-papago.qml" line="162"/>
+        <source>Yes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/harbour-papago.qml" line="211"/>
         <source>No language is available.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/harbour-papago.qml" line="130"/>
+        <location filename="../qml/harbour-papago.qml" line="212"/>
         <source>You can download Speech to Text, Text to Speech and Translator models for the languages you intend to use in the %1 app.</source>
         <translation type="unfinished"></translation>
     </message>
