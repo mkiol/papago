@@ -83,10 +83,20 @@ ApplicationWindow {
                         MenuItem {
                             text: modelData[1]
                         }
+
+                        onItemAdded: updateCurrentIndex()
+                        onItemRemoved: updateCurrentIndex()
+
+                        function updateCurrentIndex() {
+                            inLangCombo.currentIndex = count > speechService.inLangIdx ?
+                                        speechService.inLangIdx : -1
+                        }
                     }
                 }
 
                 onCurrentIndexChanged: {
+                    if (speechService.inLangIdx === currentIndex) return
+                    console.log("in lang currentIndex changed:", currentIndex)
                     speechService.setInLangIdx(currentIndex)
                 }
             }
@@ -105,10 +115,20 @@ ApplicationWindow {
                         MenuItem {
                             text: modelData[1]
                         }
+
+                        onItemAdded: updateCurrentIndex()
+                        onItemRemoved: updateCurrentIndex()
+
+                        function updateCurrentIndex() {
+                            outLangCombo.currentIndex = count > speechService.outLangIdx ?
+                                        speechService.outLangIdx : -1
+                        }
                     }
                 }
 
                 onCurrentIndexChanged: {
+                    if (speechService.outLangIdx === currentIndex) return
+                    console.log("out lang currentIndex changed:", currentIndex)
                     speechService.setOutLangIdx(currentIndex)
                 }
             }
@@ -224,6 +244,12 @@ ApplicationWindow {
         property int outLangIdx: 0
         property var outLangList: []
 
+        onInLangIdxChanged: console.log("in lang idx changed:", inLangIdx)
+        onOutLangIdxChanged: {console.log("out lang idx changed:", outLangIdx); outLangCombo.currentIndex = outLangIdx}
+
+        onOutLangListChanged: setOutLangId(outLangConf.value)
+        onInLangListChanged: setInLangId(inLangConf.value)
+
         function reset() {
             console.log("reset")
             app.appState = 0
@@ -293,15 +319,19 @@ ApplicationWindow {
 
         function setInLangIdx(index) {
             var old_lang = inLang
+            var old_idx = inLangIdx
 
             if (index >= 0 && index < inLangList.length) {
                 var new_lang = inLangList[index][0]
                 inLangConf.value = new_lang
                 if (old_lang !== new_lang)
                     reset()
-                console.log("in-lang changed: " + old_lang + " => " + new_lang)
-                inLang = new_lang
-                inLangIdx = index
+                if (old_lang !== new_lang || old_idx !== index) {
+                    console.log("in-lang changed: " + old_lang + " => " + new_lang)
+                    inLang = new_lang
+                    inLangIdx = index
+                    fillOutLangs()
+                }
             } else {
                 console.log("failed to set new in-lang idx:", index)
             }
@@ -309,15 +339,18 @@ ApplicationWindow {
 
         function setOutLangIdx(index) {
             var old_lang = outLang
+            var old_idx = outLangIdx
 
             if (index >= 0 && index < outLangList.length) {
                 var new_lang = outLangList[index][0]
                 outLangConf.value = new_lang
                 if (old_lang !== new_lang)
                     reset()
-                console.log("out-lang changed: " + old_lang + " => " + new_lang)
-                outLang = new_lang
-                outLangIdx = index
+                if (old_lang !== new_lang || old_idx !== index) {
+                    console.log("out-lang changed: " + old_lang + " => " + new_lang)
+                    outLang = new_lang
+                    outLangIdx = index
+                }
             } else {
                 console.log("failed to set new out-lang idx:", index)
             }
@@ -336,6 +369,8 @@ ApplicationWindow {
                 console.log("in-lang changed: " + old_lang + " => " + new_lang)
                 inLang = new_lang
                 inLangIdx = i
+
+                fillOutLangs()
                 return
             }
 
@@ -347,6 +382,8 @@ ApplicationWindow {
                 console.log("in-lang changed: " + old_lang + " => " + inLang)
                 inLang = new_lang
                 inLangIdx = 0
+
+                fillOutLangs()
                 return
             }
 
@@ -408,6 +445,16 @@ ApplicationWindow {
             return false
         }
 
+        function langListEqual(a, b) {
+            if (a === b) return true
+            if (a.length !== b.length) return false
+
+            for (var i = 0; i < a.length; ++i)
+                if (a[i][0] !== b[i][0]) return false
+
+            return true
+        }
+
         function updateLangs() {
             console.log("update langs")
 
@@ -424,30 +471,32 @@ ApplicationWindow {
                 }
             }
 
-            inLangList = newInLangList
-
-            setInLangId(inLangConf.value)
+            if (!langListEqual(newInLangList, inLangList)) {
+                inLangIdx = -1
+                inLangList = newInLangList
+            }
         }
 
         function fillOutLangs() {
             var ok = getOutLangsForTranslate(inLang, function(langs) {
                 var newOutLangList = []
-
                 for (var sttIdx = 0; sttIdx < sttLangList.length; sttIdx++) {
                     var sttLangId = sttLangList[sttIdx][0];
-                    if (hasTts(sttLangId)) {
+                    if (sttLangId === inLang && hasTts(sttLangId)) {
                         newOutLangList.push(sttLangList[sttIdx])
                     }
                 }
 
                 for (var id in langs) {
-                    if (hasTts(id) && !idInList(id, newOutLangList))
+                    if (hasTts(id) && !idInList(id, newOutLangList)) {
                         newOutLangList.push([id, langs[id][1]])
+                    }
                 }
 
-                outLangList = newOutLangList
-
-                setOutLangId(outLangConf.value)
+                if (!langListEqual(newOutLangList, outLangList)) {
+                    outLangIdx = -1
+                    outLangList = newOutLangList
+                }
             })
 
             if (!ok) {
