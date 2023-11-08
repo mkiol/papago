@@ -51,7 +51,13 @@ ApplicationWindow {
     ConfigurationValue {
         id: playConf
         key: "/apps/harbour-papago/settings/play"
-        defaultValue: true
+        defaultValue: false
+    }
+
+    ConfigurationValue {
+        id: confirmConf
+        key: "/apps/harbour-papago/settings/confirm"
+        defaultValue: false
     }
 
     Component {
@@ -105,7 +111,6 @@ ApplicationWindow {
 
                 onCurrentIndexChanged: {
                     if (speechService.inLangIdx === currentIndex) return
-                    console.log("in lang currentIndex changed:", currentIndex)
                     speechService.setInLangIdx(currentIndex)
                 }
             }
@@ -138,22 +143,42 @@ ApplicationWindow {
 
                 onCurrentIndexChanged: {
                     if (speechService.outLangIdx === currentIndex) return
-                    console.log("out lang currentIndex changed:", currentIndex)
                     speechService.setOutLangIdx(currentIndex)
+                }
+            }
+
+            ComboBox {
+                enabled: !speechService.busy
+                opacity: enabled ? 1.0 : Theme.opacityFaint
+                Behavior on opacity { FadeAnimator {} }
+                visible: !app.speechOff
+                label: qsTr("Confirm before speak")
+                currentIndex: confirmConf.value ? 1 : 0
+                menu: ContextMenu {
+                    MenuItem {
+                        text: qsTr("No")
+                    }
+                    MenuItem {
+                        text: qsTr("Yes")
+                    }
+                }
+
+                onCurrentIndexChanged: {
+                    confirmConf.value = currentIndex === 1
                 }
             }
         }
 
         IconButton {
-            visible: !app.speechOff
-            enabled: speechService.play || (inLangCombo.currentIndex !== -1 && outLangCombo.currentIndex !== -1)
-            icon.source: (speechService.play ? "image://theme/icon-l-pause?" : "image://theme/icon-l-play?") +
-                                 (pressed ? Theme.highlightColor : Theme.primaryColor)
+            icon.source: (speechService.play ? "image://theme/icon-m-pause?" : "image://theme/icon-m-play?") +
+                         (pressed ? Theme.highlightColor : Theme.primaryColor)
             onClicked: playConf.value = !speechService.play
-
-            y:  speechService.play ? langGrid.height + Theme.paddingLarge : (parent.height -height)/2
-            Behavior on y { NumberAnimation { duration: 100; easing.type: Easing.InOutQuad } }
-            anchors.horizontalCenter: parent.horizontalCenter
+            anchors {
+                right: parent.right
+                rightMargin: Theme.paddingMedium
+                bottom: parent.bottom
+                bottomMargin: Theme.paddingMedium
+            }
         }
 
         Label {
@@ -210,6 +235,35 @@ ApplicationWindow {
                 opacity: text.length === 0 ? 0.0 : 1.0
                 Behavior on opacity { FadeAnimator {} }
             }
+
+            Row {
+                visible: speechService.play && app.appState === 7
+                anchors.horizontalCenter: parent.horizontalCenter
+
+                IconButton {
+                    icon.source: "image://theme/icon-m-accept?" +
+                                         (pressed ? Theme.highlightColor : Theme.primaryColor)
+                    onClicked: {
+                        if (app.appState === 7) {
+                            console.log("confirm done")
+                            app.appState = 8
+                            speechService.init()
+                        }
+                    }
+                }
+
+                IconButton {
+                    icon.source: "image://theme/icon-m-dismiss?" +
+                                         (pressed ? Theme.highlightColor : Theme.primaryColor)
+                    onClicked: {
+                        if (app.appState === 7) {
+                            console.log("reject done")
+                            speechService.reset()
+                            speechService.init()
+                        }
+                    }
+                }
+            }
         }
 
         Label {
@@ -260,6 +314,7 @@ ApplicationWindow {
         id: speechService
 
         property bool play: playConf.value
+        property bool confirm: confirmConf.value
         property string inLang: ""
         property int inLangIdx: 0
         property var inLangList: []
@@ -302,10 +357,15 @@ ApplicationWindow {
                 case 2:
                     if (app.speechInText.length !== 0) {
                         if (inLang === outLang) {
-                            console.log("playing")
                             app.speechOutText = app.speechInText
-                            playSpeech(app.speechInText, inLang)
-                            app.appState = 5
+                            if (confirm) {
+                                console.log("confirm wait")
+                                app.appState = 7
+                            } else {
+                                console.log("playing")
+                                playSpeech(app.speechInText, inLang)
+                                app.appState = 5
+                            }
                         } else {
                             console.log("translate")
                             translate(app.speechInText, inLang, outLang)
@@ -321,9 +381,14 @@ ApplicationWindow {
                     break
                 case 4:
                     if (app.speechOutText.length !== 0) {
-                        console.log("playing")
-                        playSpeech(app.speechOutText, outLang)
-                        app.appState = 5
+                        if (confirm) {
+                            console.log("confirm wait")
+                            app.appState = 7
+                        } else {
+                            console.log("playing")
+                            playSpeech(app.speechOutText, outLang)
+                            app.appState = 5
+                        }
                         break
                     } else {
                         console.log("start listen")
@@ -337,6 +402,20 @@ ApplicationWindow {
                     console.log("start listen")
                     startListen(inLang)
                     app.appState = 1
+                    break
+                case 7:
+                    break
+                case 8:
+                    if (app.speechOutText.length !== 0) {
+                        console.log("playing")
+                        playSpeech(app.speechOutText, outLang)
+                        app.appState = 5
+                        break
+                    } else {
+                        console.log("start listen")
+                        startListen(inLang)
+                        app.appState = 1
+                    }
                     break
                 }
             }
@@ -612,7 +691,7 @@ ApplicationWindow {
             repeat: false
             interval: 1000
             onTriggered: {
-                if (speechService.idle) {
+                if (speechService.idle && app.appState !== 7 && app.appState !== 8) {
                     console.log("idle timeout")
                     speechService.reset()
                     app.appState = 0
