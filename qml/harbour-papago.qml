@@ -5,7 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import QtQuick 2.0
+import QtQuick 2.2
 import Sailfish.Silica 1.0
 import Nemo.Configuration 1.0
 
@@ -48,6 +48,12 @@ ApplicationWindow {
         }
     }
 
+    ConfigurationValue {
+        id: playConf
+        key: "/apps/harbour-papago/settings/play"
+        defaultValue: true
+    }
+
     Component {
         id: coverComp
         CoverBackground {
@@ -66,12 +72,15 @@ ApplicationWindow {
         allowedOrientations: Orientation.All
 
         Grid {
+            id: langGrid
+
             width: app.orientation & Orientation.PortraitMask ? parent.width : parent.width / 2
             columns: app.orientation & Orientation.PortraitMask ? 1 : 2
 
             ComboBox {
                 id: inLangCombo
-                enabled: !speechService.busy
+
+                enabled: !speechService.busy && currentIndex !== -1
                 opacity: enabled ? 1.0 : Theme.opacityFaint
                 Behavior on opacity { FadeAnimator {} }
                 visible: !app.speechOff
@@ -103,7 +112,8 @@ ApplicationWindow {
 
             ComboBox {
                 id: outLangCombo
-                enabled: !speechService.busy
+
+                enabled: !speechService.busy && inLangCombo.enabled && currentIndex !== -1
                 opacity: enabled ? 1.0 : Theme.opacityFaint
                 Behavior on opacity { FadeAnimator {} }
                 visible: !app.speechOff
@@ -132,6 +142,18 @@ ApplicationWindow {
                     speechService.setOutLangIdx(currentIndex)
                 }
             }
+        }
+
+        IconButton {
+            visible: !app.speechOff
+            enabled: speechService.play || (inLangCombo.currentIndex !== -1 && outLangCombo.currentIndex !== -1)
+            icon.source: (speechService.play ? "image://theme/icon-l-pause?" : "image://theme/icon-l-play?") +
+                                 (pressed ? Theme.highlightColor : Theme.primaryColor)
+            onClicked: playConf.value = !speechService.play
+
+            y:  speechService.play ? langGrid.height + Theme.paddingLarge : (parent.height -height)/2
+            Behavior on y { NumberAnimation { duration: 100; easing.type: Easing.InOutQuad } }
+            anchors.horizontalCenter: parent.horizontalCenter
         }
 
         Label {
@@ -207,7 +229,7 @@ ApplicationWindow {
                 return speechService.translate_literal("say_smth");
             }
             visible: app.speechInText.length === 0 && app.speechOutText.length === 0 &&
-                     !app.speechOff && !speechService.busy
+                     !app.speechOff && !speechService.busy && speechService.play
             opacity: text.length === 0 ? 0.0 : 1.0
             Behavior on opacity { FadeAnimator {} }
         }
@@ -237,6 +259,7 @@ ApplicationWindow {
     SpeechService {
         id: speechService
 
+        property bool play: playConf.value
         property string inLang: ""
         property int inLangIdx: 0
         property var inLangList: []
@@ -264,6 +287,8 @@ ApplicationWindow {
             }
 
             if (idle) {
+                if (!play) return
+
                 idleTimer.start()
 
                 switch(app.appState) {
@@ -504,6 +529,14 @@ ApplicationWindow {
 
                 fillOutLangsTimer.start()
             }
+        }
+
+        onPlayChanged: {
+            reset()
+            app.appState = 0
+
+            if (play) init()
+            else cancel()
         }
 
         active: true
