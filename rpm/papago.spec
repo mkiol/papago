@@ -1,7 +1,7 @@
 Name:       harbour-papago
 
 Summary:    Papago
-Version:    2.0
+Version:    2.1
 Release:    1
 License:    LICENSE
 BuildArch:  noarch
